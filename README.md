@@ -8,7 +8,7 @@ I built this instead of using an existing extension to avoid third-party trust i
 
 1. **Trigger** — the extension activates on YouTube video pages via the `yt-navigate-finish` event, `popstate`, or when an ad finishes
 2. **Wait for player** — polls until the video element has metadata (`readyState >= 1`) and the settings button is present
-3. **Wait for Auto to settle** — waits 5 seconds for YouTube's Auto quality to select its resolution before intervening
+3. **Wait for Auto to settle** — waits 10 seconds for YouTube's Auto quality to select its resolution before intervening
 4. **Skip ads** — if an ad is playing, waits for it to finish before proceeding
 5. **Read current quality** — opens the settings menu (hidden via CSS so the user doesn't see it) and reads the current quality from the Quality row's display text (e.g., "Auto (1080p60 Premium)")
 6. **Find best available** — opens the quality submenu, parses all options, extracts resolution and Premium status, and sorts by resolution (highest first) then Premium (preferred over non-Premium at the same resolution)
