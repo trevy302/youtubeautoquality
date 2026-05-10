@@ -32,6 +32,10 @@
     return new Promise((r) => setTimeout(r, ms));
   }
 
+  function nextFrames() {
+    return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+
   async function poll(fn, timeout = 3000, interval = 50) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
@@ -108,8 +112,8 @@
         continue;
       const m = txt.match(/(\d{3,4})p/);
       if (!m) continue;
-      const isPremium = /premium|enhanced/i.test(txt);
-      options.push({ el: item, height: parseInt(m[1], 10), txt, premium: isPremium });
+      const premium = /premium/i.test(txt);
+      options.push({ el: item, height: parseInt(m[1], 10), txt, premium });
     }
     if (!options.length) return null;
     options.sort((a, b) => b.height - a.height || (b.premium ? 1 : 0) - (a.premium ? 1 : 0));
@@ -130,9 +134,14 @@
 
     if (isAdPlaying()) {
       await waitForAdEnd(thisNav);
-      await delay(500);
+      await poll(() => {
+        const v = player.querySelector('video');
+        return v && v.readyState >= 1;
+      }, 5000);
     }
     if (thisNav !== navId) return false;
+
+    await delay(5000);
 
     if (settingsMenuVisible()) {
       log('User has settings open, skipping');
@@ -167,6 +176,13 @@
         btn.click();
         return false;
       }
+
+      const qContent = qItem.querySelector(SEL.MENU_ITEM_CONTENT);
+      const currentTxt = qContent ? qContent.textContent.trim() : '';
+      const currentMatch = currentTxt.match(/(\d{3,4})p/);
+      const currentHeight = currentMatch ? parseInt(currentMatch[1], 10) : 0;
+      const currentPremium = /premium/i.test(currentTxt);
+
       qItem.click();
 
       const qualityRows = await poll(
@@ -194,14 +210,21 @@
         return false;
       }
 
+      const alreadyBest = best.el.getAttribute('aria-checked') === 'true' ||
+        (currentHeight === best.height && currentPremium === best.premium);
+      if (alreadyBest) {
+        log('Already at best quality:', best.txt);
+        return 'unchanged';
+      }
+
       log('Setting quality to', best.txt);
       best.el.click();
       openedMenu = false;
-      return true;
+      return 'changed';
     } finally {
       removeHideCSS();
       if (openedMenu) {
-        await delay(100);
+        await nextFrames();
         if (settingsMenuVisible()) {
           const btn = player.querySelector(SEL.SETTINGS_BTN);
           if (btn) btn.click();
@@ -214,13 +237,16 @@
     for (let i = 0; i < 3; i++) {
       if (thisNav !== navId) return false;
       try {
-        const ok = await setQuality(thisNav);
-        if (ok) return true;
+        const result = await setQuality(thisNav);
+        if (result) return result;
       } catch (e) {
         log(`Attempt ${i + 1} failed:`, e.message);
       }
       removeHideCSS();
-      if (i < 2) await delay(500 * 2 ** i);
+      if (i < 2) await poll(() => {
+        const p = document.querySelector(SEL.PLAYER);
+        return p && p.querySelector(SEL.SETTINGS_BTN) && !settingsMenuVisible();
+      }, 2000);
     }
     log('All attempts failed');
     return false;
@@ -244,8 +270,8 @@
       }, 8000, 100);
       if (!ready || thisNav !== navId) return;
 
-      const ok = await setQualityRetry(thisNav);
-      if (ok) {
+      const result = await setQualityRetry(thisNav);
+      if (result) {
         processed.add(vid);
         if (processed.size > 100) processed.delete(processed.values().next().value);
       }
