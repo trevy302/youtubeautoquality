@@ -101,7 +101,6 @@
       if (!label) continue;
       const txt = label.textContent.trim();
       if (/auto/i.test(txt)) continue;
-      if (/premium|enhanced/i.test(txt)) continue;
       if (
         item.getAttribute('aria-disabled') === 'true' ||
         item.classList.contains('ytp-menuitem-disabled')
@@ -109,10 +108,11 @@
         continue;
       const m = txt.match(/(\d{3,4})p/);
       if (!m) continue;
-      options.push({ el: item, height: parseInt(m[1], 10), txt });
+      const isPremium = /premium|enhanced/i.test(txt);
+      options.push({ el: item, height: parseInt(m[1], 10), txt, premium: isPremium });
     }
     if (!options.length) return null;
-    options.sort((a, b) => b.height - a.height);
+    options.sort((a, b) => b.height - a.height || (b.premium ? 1 : 0) - (a.premium ? 1 : 0));
     return options[0];
   }
 
