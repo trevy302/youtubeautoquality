@@ -141,7 +141,7 @@
     }
     if (thisNav !== navId) return false;
 
-    await delay(5000);
+    await delay(10000);
 
     if (settingsMenuVisible()) {
       log('User has settings open, skipping');
